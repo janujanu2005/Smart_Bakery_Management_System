@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Manage Orders - Admin</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <nav class="navbar">
+    <div class="nav-container">
+      <h1 class="logo">🍰 Smart Bakery Admin</h1>
+      <ul class="nav-menu">
+        <li><a href="admin-dashboard.html">Dashboard</a></li>
+        <li><span id="userName">Admin</span></li>
+        <li><a href="#" id="logoutBtn" class="btn-secondary">Logout</a></li>
+      </ul>
+    </div>
+  </nav>
+
+  <div class="container">
+    <section class="admin-section">
+      <h2>Manage Customer Orders</h2>
+
+      <div class="filters">
+        <button class="filter-btn active" data-status="all">All Orders</button>
+        <button class="filter-btn" data-status="Preparing">Preparing</button>
+        <button class="filter-btn" data-status="Ready">Ready</button>
+        <button class="filter-btn" data-status="Delivered">Delivered</button>
+      </div>
+
+      <div id="ordersList" class="orders-list">
+        <p>Loading orders...</p>
+      </div>
+    </section>
+  </div>
+
+  <script src="auth.js"></script>
+  <script src="api.js"></script>
+  <script>
+    // Check admin authentication
+    if (!AuthService.isAuthenticated() || !AuthService.isAdmin()) {
+      window.location.href = 'login.html';
+    }
+
+    const user = AuthService.getUser();
+    document.getElementById('userName').textContent = user?.name || 'Admin';
+
+    // Logout
+    document.getElementById('logoutBtn').addEventListener('click', (e) => {
+      e.preventDefault();
+      AuthService.logout();
+    });
+
+    let allOrders = [];
+    let currentFilter = 'all';
+
+    // Load orders
+    async function loadOrders() {
+      const result = await ApiService.getAllOrders();
+
+      if (result.success) {
+        allOrders = result.data;
+        displayOrders();
+      }
+    }
+
+    // Display orders with filters
+    function displayOrders() {
+      const filtered = currentFilter === 'all' 
+        ? allOrders 
+        : allOrders.filter(o => o.status === currentFilter);
+
+      document.getElementById('ordersList').innerHTML = filtered.map(order => `
+        <div class="order-card admin-card">
+          <div class="order-header">
+            <h3>${order.cake_name}</h3>
+            <span class="status ${order.status.toLowerCase()}">${order.status}</span>
+          </div>
+          <p><strong>Customer:</strong> ${order.name} (${order.email})</p>
+          <p><strong>Weight:</strong> ${order.weight} kg | <strong>Price:</strong> $${order.price}</p>
+          <p><strong>Message:</strong> ${order.message || 'No message'}</p>
+          <p><strong>Pickup:</strong> ${new Date(order.pickup_time).toLocaleString()}</p>
+          <select class="status-select" data-order-id="${order.id}" data-current="${order.status}">
+            <option value="Preparing" ${order.status === 'Preparing' ? 'selected' : ''}>Preparing</option>
+            <option value="Ready" ${order.status === 'Ready' ? 'selected' : ''}>Ready</option>
+            <option value="Delivered" ${order.status === 'Delivered' ? 'selected' : ''}>Delivered</option>
+          </select>
+        </div>
+      `).join('');
+
+      // Add event listeners
+      document.querySelectorAll('.status-select').forEach(select => {
+        select.addEventListener('change', updateOrderStatus);
+      });
+    }
+
+    // Update order status
+    async function updateOrderStatus(e) {
+      const orderId = e.target.dataset.orderId;
+      const status = e.target.value;
+
+      const result = await ApiService.updateOrderStatus(orderId, status);
+
+      if (result.success) {
+        alert('Order status updated!');
+        loadOrders();
+      } else {
+        alert('Failed to update status');
+      }
+    }
+
+    // Filter functionality
+    document.querySelectorAll('.filter-btn').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+        e.target.classList.add('active');
+        currentFilter = e.target.dataset.status;
+        displayOrders();
+      });
+    });
+
+    // Load orders on page load
+    loadOrders();
+  </script>
+</body>
+</html>

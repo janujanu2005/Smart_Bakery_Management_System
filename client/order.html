@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Place Order - Smart Bakery</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <nav class="navbar">
+    <div class="nav-container">
+      <h1 class="logo">🍰 Smart Bakery</h1>
+      <ul class="nav-menu">
+        <li><a href="dashboard.html">Dashboard</a></li>
+        <li><span id="userName">User</span></li>
+        <li><a href="#" id="logoutBtn" class="btn-secondary">Logout</a></li>
+      </ul>
+    </div>
+  </nav>
+
+  <div class="container">
+    <section class="order-section">
+      <h2>Place Your Custom Cake Order</h2>
+      <form id="orderForm" class="form-group">
+        <div class="form-field">
+          <label for="cake_name">Cake Name *</label>
+          <input type="text" id="cake_name" placeholder="e.g., Chocolate Layer Cake" required>
+        </div>
+
+        <div class="form-field">
+          <label for="weight">Weight (kg) *</label>
+          <input type="number" id="weight" step="0.5" min="0.5" placeholder="2.5" required>
+          <p class="help-text">Price: $10 per kg</p>
+        </div>
+
+        <div class="form-field">
+          <label for="message">Custom Message</label>
+          <textarea id="message" placeholder="Add a special message for your cake"></textarea>
+        </div>
+
+        <div class="form-field">
+          <label for="image">Upload Cake Design Image</label>
+          <input type="file" id="image" accept="image/*">
+          <p class="help-text">Max 5MB, JPG/PNG/GIF/WebP</p>
+        </div>
+
+        <div class="form-field">
+          <label for="pickup_time">Pickup Date & Time *</label>
+          <input type="datetime-local" id="pickup_time" required>
+        </div>
+
+        <div class="price-display">
+          <p>Estimated Price: <strong id="priceDisplay">$0</strong></p>
+        </div>
+
+        <button type="submit" class="btn-primary btn-large">Place Order</button>
+        <div id="orderMessage" class="message"></div>
+      </form>
+    </section>
+  </div>
+
+  <script src="auth.js"></script>
+  <script src="api.js"></script>
+  <script>
+    // Check authentication
+    if (!AuthService.isAuthenticated()) {
+      window.location.href = 'login.html';
+    }
+
+    const user = AuthService.getUser();
+    document.getElementById('userName').textContent = user?.name || 'User';
+
+    // Logout
+    document.getElementById('logoutBtn').addEventListener('click', (e) => {
+      e.preventDefault();
+      AuthService.logout();
+    });
+
+    // Update price based on weight
+    document.getElementById('weight').addEventListener('input', (e) => {
+      const weight = parseFloat(e.target.value) || 0;
+      const price = weight * 10;
+      document.getElementById('priceDisplay').textContent = '$' + price.toFixed(2);
+    });
+
+    // Place order
+    document.getElementById('orderForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+
+      const orderData = {
+        cake_name: document.getElementById('cake_name').value,
+        weight: document.getElementById('weight').value,
+        message: document.getElementById('message').value,
+        pickup_time: document.getElementById('pickup_time').value
+      };
+
+      const imageFile = document.getElementById('image').files[0];
+      const messageDiv = document.getElementById('orderMessage');
+
+      try {
+        const result = await ApiService.createOrder(orderData, imageFile);
+
+        if (result.success) {
+          messageDiv.textContent = '✓ Order placed successfully! You earned reward points!';
+          messageDiv.className = 'message success';
+          document.getElementById('orderForm').reset();
+          setTimeout(() => window.location.href = 'dashboard.html', 2000);
+        } else {
+          messageDiv.textContent = '✗ ' + (result.data?.message || 'Failed to place order');
+          messageDiv.className = 'message error';
+        }
+      } catch (error) {
+        messageDiv.textContent = '✗ Error: ' + error.message;
+        messageDiv.className = 'message error';
+      }
+    });
+  </script>
+</body>
+</html>

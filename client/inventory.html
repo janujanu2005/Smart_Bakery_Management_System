@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Inventory Management - Admin</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <nav class="navbar">
+    <div class="nav-container">
+      <h1 class="logo">🍰 Smart Bakery Admin</h1>
+      <ul class="nav-menu">
+        <li><a href="admin-dashboard.html">Dashboard</a></li>
+        <li><span id="userName">Admin</span></li>
+        <li><a href="#" id="logoutBtn" class="btn-secondary">Logout</a></li>
+      </ul>
+    </div>
+  </nav>
+
+  <div class="container">
+    <div class="admin-grid">
+      <!-- Add Ingredient Section -->
+      <section class="admin-section">
+        <h2>Add New Ingredient</h2>
+        <form id="ingredientForm" class="form-group">
+          <div class="form-field">
+            <label for="ing_name">Ingredient Name</label>
+            <input type="text" id="ing_name" placeholder="e.g., Flour" required>
+          </div>
+          <div class="form-field">
+            <label for="ing_quantity">Quantity</label>
+            <input type="number" id="ing_quantity" step="0.1" placeholder="50" required>
+          </div>
+          <div class="form-field">
+            <label for="ing_unit">Unit</label>
+            <input type="text" id="ing_unit" placeholder="e.g., kg" required>
+          </div>
+          <div class="form-field">
+            <label for="ing_threshold">Low Stock Threshold</label>
+            <input type="number" id="ing_threshold" step="0.1" value="10" required>
+          </div>
+          <button type="submit" class="btn-primary">Add Ingredient</button>
+          <div id="addMessage" class="message"></div>
+        </form>
+      </section>
+
+      <!-- Current Inventory Section -->
+      <section class="admin-section">
+        <h2>Current Ingredients</h2>
+        <div id="ingredientsList" class="list">
+          <p>Loading ingredients...</p>
+        </div>
+      </section>
+
+      <!-- Low Stock Alerts Section -->
+      <section class="admin-section">
+        <h2>⚠️ Low Stock Alerts</h2>
+        <div id="lowStockList" class="list">
+          <p>Loading...</p>
+        </div>
+      </section>
+    </div>
+  </div>
+
+  <script src="auth.js"></script>
+  <script src="api.js"></script>
+  <script>
+    // Check admin authentication
+    if (!AuthService.isAuthenticated() || !AuthService.isAdmin()) {
+      window.location.href = 'login.html';
+    }
+
+    const user = AuthService.getUser();
+    document.getElementById('userName').textContent = user?.name || 'Admin';
+
+    // Logout
+    document.getElementById('logoutBtn').addEventListener('click', (e) => {
+      e.preventDefault();
+      AuthService.logout();
+    });
+
+    // Load ingredients
+    async function loadIngredients() {
+      const result = await ApiService.getIngredients();
+
+      if (result.success) {
+        document.getElementById('ingredientsList').innerHTML = result.data.map(ing => `
+          <div class="ingredient-item">
+            <h4>${ing.name}</h4>
+            <p>Quantity: ${ing.quantity} ${ing.unit}</p>
+            <p>Threshold: ${ing.low_stock_threshold}</p>
+          </div>
+        `).join('');
+      }
+    }
+
+    // Load low stock items
+    async function loadLowStock() {
+      const result = await ApiService.getLowStockItems();
+
+      if (result.success) {
+        if (result.data.length === 0) {
+          document.getElementById('lowStockList').innerHTML = '<p>✓ All items in stock</p>';
+        } else {
+          document.getElementById('lowStockList').innerHTML = result.data.map(item => `
+            <div class="alert-item">
+              <p>⚠️ <strong>${item.name}</strong>: ${item.quantity} ${item.unit} (Threshold: ${item.low_stock_threshold})</p>
+            </div>
+          `).join('');
+        }
+      }
+    }
+
+    // Add ingredient
+    document.getElementById('ingredientForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+
+      const ingredientData = {
+        name: document.getElementById('ing_name').value,
+        quantity: parseFloat(document.getElementById('ing_quantity').value),
+        unit: document.getElementById('ing_unit').value,
+        low_stock_threshold: parseFloat(document.getElementById('ing_threshold').value)
+      };
+
+      const messageDiv = document.getElementById('addMessage');
+
+      const result = await ApiService.addIngredient(ingredientData);
+
+      if (result.success) {
+        messageDiv.textContent = '✓ Ingredient added successfully!';
+        messageDiv.className = 'message success';
+        document.getElementById('ingredientForm').reset();
+        loadIngredients();
+        loadLowStock();
+        setTimeout(() => messageDiv.textContent = '', 2000);
+      } else {
+        messageDiv.textContent = '✗ ' + (result.data?.message || 'Failed to add ingredient');
+        messageDiv.className = 'message error';
+      }
+    });
+
+    // Load data on page load
+    loadIngredients();
+    loadLowStock();
+
+    // Refresh every 30 seconds
+    setInterval(() => {
+      loadIngredients();
+      loadLowStock();
+    }, 30000);
+  </script>
+</body>
+</html>

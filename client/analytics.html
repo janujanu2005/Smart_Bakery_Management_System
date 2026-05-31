@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Sales Analytics - Admin</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <nav class="navbar">
+    <div class="nav-container">
+      <h1 class="logo">🍰 Smart Bakery Admin</h1>
+      <ul class="nav-menu">
+        <li><a href="admin-dashboard.html">Dashboard</a></li>
+        <li><span id="userName">Admin</span></li>
+        <li><a href="#" id="logoutBtn" class="btn-secondary">Logout</a></li>
+      </ul>
+    </div>
+  </nav>
+
+  <div class="container">
+    <section class="admin-section">
+      <h2>Sales Analytics</h2>
+
+      <div class="analytics-controls">
+        <button class="btn-secondary active" data-period="daily">📅 Daily</button>
+        <button class="btn-secondary" data-period="weekly">📊 Weekly</button>
+        <button class="btn-secondary" data-period="monthly">📈 Monthly</button>
+      </div>
+
+      <div id="analyticsList" class="analytics-list">
+        <p>Loading analytics...</p>
+      </div>
+    </section>
+
+    <section class="admin-section">
+      <h2>Top Selling Cakes</h2>
+      <div id="topCakes" class="list">
+        <p>Loading...</p>
+      </div>
+    </section>
+  </div>
+
+  <script src="auth.js"></script>
+  <script src="api.js"></script>
+  <script>
+    // Check admin authentication
+    if (!AuthService.isAuthenticated() || !AuthService.isAdmin()) {
+      window.location.href = 'login.html';
+    }
+
+    const user = AuthService.getUser();
+    document.getElementById('userName').textContent = user?.name || 'Admin';
+
+    // Logout
+    document.getElementById('logoutBtn').addEventListener('click', (e) => {
+      e.preventDefault();
+      AuthService.logout();
+    });
+
+    let currentPeriod = 'daily';
+
+    // Load analytics
+    async function loadAnalytics(period = 'daily') {
+      const result = await ApiService.getSalesAnalytics(period);
+
+      if (result.success) {
+        document.getElementById('analyticsList').innerHTML = result.data.length === 0 
+          ? '<p>No data available</p>'
+          : result.data.map(item => `
+            <div class="analytics-item">
+              <p><strong>${new Date(item.period).toLocaleDateString()}</strong></p>
+              <p>Orders: ${item.orders} | Revenue: $${parseFloat(item.revenue).toFixed(2)}</p>
+            </div>
+          `).join('');
+      }
+    }
+
+    // Analytics button events
+    document.querySelectorAll('.analytics-controls button').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        document.querySelectorAll('.analytics-controls button').forEach(b => b.classList.remove('active'));
+        e.target.classList.add('active');
+        currentPeriod = e.target.dataset.period;
+        loadAnalytics(currentPeriod);
+      });
+    });
+
+    // Load data on page load
+    loadAnalytics(currentPeriod);
+  </script>
+</body>
+</html>
